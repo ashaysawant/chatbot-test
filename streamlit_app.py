@@ -1,56 +1,59 @@
 import streamlit as st
-from openai import OpenAI
+from streamlit_chat import message
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
+# Initialize conversation history
+conversation = []
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+# Function to get the bot's response
+def get_bot_response(income, age):
+    # This is just a simple example, you can replace this with your own logic
+    # or integrate with a language model API
+    if user_input.lower() == "hello":
+        return "Hello! How can I assist you today?"
+    elif user_input.lower() == "bye":
+        return "Goodbye!"
+    else:
+        return "I'm sorry, I didn't understand your query. Can you please rephrase it?"
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# Streamlit app
+def app():
+    st.title("AI Wizards Fiancial Advisor")
+    st.write("Welcome to the your Finacial Advisor! Enter the following information:")
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Create a form for user input
+    with st.form("user_input_form"):
+        # Get user input for income
+        income = st.number_input("Enter your income:", min_value=0.0, step=100.0, max_value=1000000000.0)
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        # Get user input for age
+        age = st.number_input("Enter your age:", min_value=0, step=1, max_value=100)
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+        #Get user input for investment horizon
+        investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term", "Medium Term", "Long Term"],horizontal=True)
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        #Get user input for investment objective
+        investment_objective = st.radio("Select your Investment Objective:", options=["Retirement", "Education", "Income Generation"],horizontal=True)
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
+        #Get user input for investment risk
+        investment_risk = st.radio("Select your Investment Risk:", options=["Low", "Moderate", "High"],horizontal=True)
 
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        
+        # Get user input
+        #user_input = st.text_input("You: ", key="user_input")
+
+        # Submit button
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            bot_response = get_bot_response(user_input)
+            conversation.append(("You", user_input))
+            conversation.append(("Bot", bot_response))
+
+            # Clear user input
+            st.session_state["user_input"] = ""
+    
+    # Display conversation history
+    #for sender, message in conversation:
+    #    message(f"{sender}: {message}", is_user=(sender == "You"), key=f"{sender}_{len(conversation)}")
+
+if __name__ == "__main__":
+    app()
