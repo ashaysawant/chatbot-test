@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(layout="wide")
 #from streamlit_chat import message
 
 if "disabled" not in st.session_state:
@@ -19,45 +20,45 @@ def get_bot_response(userInput):
 def disable():
     st.session_state["disabled"] = True
 
-def get_user_inputs():
+def get_user_inputs(container):
     # Create a form for user input
+    with container: 
+        with st.form("user_input_form"):
 
-    with st.form("user_input_form"):
+            #TODO: need to restore previously entered values
 
-        #TODO: need to restore previously entered values
+            # Get user input for name
+            name = st.text_input("Enter your name:", key="name",disabled=st.session_state.disabled)
 
-        # Get user input for name
-        name = st.text_input("Enter your name:", key="name",disabled=st.session_state.disabled)
+            # Get user input for income
+            income = st.number_input("Enter your income:", min_value=0.0, step=100.0, max_value=1000000000.0,disabled=st.session_state.disabled)
 
-        # Get user input for income
-        income = st.number_input("Enter your income:", min_value=0.0, step=100.0, max_value=1000000000.0,disabled=st.session_state.disabled)
+            #Get user input for total networth
+            total_networth = st.number_input("Enter your Total Networth:", min_value=0.0, step=1000.0, max_value=1000000000.0,disabled=st.session_state.disabled)
 
-        #Get user input for total networth
-        total_networth = st.number_input("Enter your Total Networth:", min_value=0.0, step=1000.0, max_value=1000000000.0,disabled=st.session_state.disabled)
+            # Get user input for age
+            age = st.number_input("Enter your age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled)
 
-        # Get user input for age
-        age = st.number_input("Enter your age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled)
+            #Get user input for investment horizon
+            investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"],horizontal=True,disabled=st.session_state.disabled)
 
-        #Get user input for investment horizon
-        investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"],horizontal=True,disabled=st.session_state.disabled)
+            #Get user input for investment objective
+            investment_objective = st.radio("Select your Investment Objective:", options=["Retirement", "Education", "Income Generation"],horizontal=True,disabled=st.session_state.disabled)
 
-        #Get user input for investment objective
-        investment_objective = st.radio("Select your Investment Objective:", options=["Retirement", "Education", "Income Generation"],horizontal=True,disabled=st.session_state.disabled)
+            #Get user input for investment risk
+            investment_risk = st.radio("Select your Investment Risk:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
 
-        #Get user input for investment risk
-        investment_risk = st.radio("Select your Investment Risk:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
+            #Get user input for preferred asset class
+            preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs"],disabled=st.session_state.disabled)
 
-        #Get user input for preferred asset class
-        preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs"],disabled=st.session_state.disabled)
+            #Get user input for existing investments
+            existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "None"],disabled=st.session_state.disabled)
 
-        #Get user input for existing investments
-        existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "None"],disabled=st.session_state.disabled)
-
-        # Submit button
-        submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
-        if submitted:
-            userDict = {"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments}
-            return userDict
+            # Submit button
+            submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
+            if submitted:
+                userDict = {"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments}
+                return userDict
 
 def generate_prompt(userDict):
     prompt = f"""Generate a personalized investment portfolio based on the following user information:
@@ -77,14 +78,22 @@ def generate_prompt(userDict):
 def app():
     st.title("AI Wizards Fiancial Advisor")
     st.write("Welcome to the your Finacial Advisor! Enter the following information:")
+    
+    row1= st.columns(2)
+    
+    with row1[0]:
+        left1 = st.container(height=880)
+
+    with row1[1]:
+        right1 = st.container(height=800)
 
     # Initialize conversation history
     if "messages" not in st.session_state.keys():
         st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
 
     # Create a form for user input
-    userDict = get_user_inputs()
-        
+    userDict = get_user_inputs(left1)
+    
     # Get the bot's response
     if userDict:
         userPrompt= generate_prompt(userDict)
@@ -93,24 +102,24 @@ def app():
         bot_response = get_bot_response(userPrompt)
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
-    if st.session_state.messages[-1]["role"] =="assistant" and st.session_state.messages[-1]["content"] !="Enter user information":
-        userInput = st.chat_input("Ask your question to improve the response or type Reset to start from beginning")
+    #with right:
+    userInput = row1[1].chat_input("Ask your question to improve the response or type Reset to start from beginning",disabled=not(st.session_state.disabled))
 
-        if userInput:
-            st.session_state.messages.append({"role": "user", "content": userInput})
-            if userInput.lower() == "reset":
-                st.session_state["disabled"] = False
-                userDict=None
-                st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
-                st.rerun()
-                        
-            bot_response = get_bot_response(userInput)
-            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+    if userInput:
+        if userInput.lower() == "reset":
+            st.session_state["disabled"] = False
+            userDict=None
+            st.rerun()
+        
+        st.session_state.messages.append({"role": "user", "content": userInput})            
+        bot_response = get_bot_response(userInput)
+        st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
     # Display chat messages
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+        with right1:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
 if __name__ == "__main__":
     app()
