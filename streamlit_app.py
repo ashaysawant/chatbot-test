@@ -1,8 +1,6 @@
 import streamlit as st
 #from streamlit_chat import message
 
-# Initialize conversation history
-conversation = []
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
 
@@ -95,27 +93,24 @@ def app():
         bot_response = get_bot_response(userPrompt)
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
-    # Display chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-
     if st.session_state.messages[-1]["role"] =="assistant" and st.session_state.messages[-1]["content"] !="Enter user information":
         userInput = st.chat_input("Ask your question to improve the response or type Reset to start from beginning")
 
         if userInput:
+            st.session_state.messages.append({"role": "user", "content": userInput})
             if userInput.lower() == "reset":
                 st.session_state["disabled"] = False
                 userDict=None
                 st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
                 st.rerun()
-            
-            with  st.chat_message(name="user"):
-                st.text_area(label="You:", value=userInput, height=100)
-            
+                        
             bot_response = get_bot_response(userInput)
-            with  st.chat_message(name="ai"):
-                st.text_area(label="Here are your investment recommendations:",value=bot_response,height=300)
+            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
 
 if __name__ == "__main__":
     app()
