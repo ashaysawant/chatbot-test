@@ -1,2 +1,4 @@
 streamlit
 streamlit-chat
+boto3
+botocore
