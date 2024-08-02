@@ -1,21 +1,26 @@
 import streamlit as st
 st.set_page_config(layout="wide")
-#from streamlit_chat import message
+import requests
+import os
+api_url = os.environ.get("API_URL")
 
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
 
 # Function to get the bot's response
 def get_bot_response(userInput):
-    # This is just a simple example, you can replace this with your own logic
-    # or integrate with a language model API
-    sample_response="""Based on your income, age, investment horizon, investment objective, investment risk, existing investments, total networth, and the provided information, we recommend the following investment options:\n
-             1. Stock A: 10% growth potential, 5-year return, suitable for investors with low risk tolerance
-             2. Mutual Fund XYZ: 8% growth potential, 10-year return, suitable for investors with moderate risk tolerance
-             3. Mutual Fund ABC: 12% growth potential, 5-year return, suitable for investors with high risk tolerance
-             4. ETF DEF: 15% growth potential, 10-year return, suitable for investors with high risk tolerance
-             """
-    return sample_response
+    request_body = {
+        'message': userInput
+    }
+    try:
+        response = requests.post(api_url, json=request_body)
+        response.raise_for_status()  # Raise an exception for non-2xx status codes
+        bot_response = response.text
+    except requests.exceptions.RequestException as e:
+        print(f'Error: {e}')
+        bot_response = 'Sorry, something went wrong. Please try again later.'
+
+    return bot_response
 
 def disable():
     st.session_state["disabled"] = True
@@ -24,8 +29,6 @@ def get_user_inputs(container):
     # Create a form for user input
     with container: 
         with st.form("user_input_form"):
-
-            #TODO: need to restore previously entered values
 
             # Get user input for name
             name = st.text_input("Enter your name:", key="name",disabled=st.session_state.disabled)
@@ -61,21 +64,23 @@ def get_user_inputs(container):
                 return userDict
 
 def generate_prompt(userDict):
-    prompt = f"""Generate a personalized investment portfolio based on the following user information:
-    Name: {userDict['name']}
-    Income: {userDict['income']}
-    Total Networth: {userDict['total_networth']}
-    Age: {userDict['age']}
-    Investment Horizon: {userDict['investment_horizon']}
-    Investment Objective: {userDict['investment_objective']}
-    Investment Risk: {userDict['investment_risk']}
-    Preferred Asset Class: {', '.join(userDict['preferred_asset_class'])}
+    prompt = f"""Generate a personalized investment portfolio based on the following user information: 
+    Name: {userDict['name']}, 
+    Income: {userDict['income']}, 
+    Total Networth: {userDict['total_networth']}, 
+    Age: {userDict['age']}, 
+    Investment Horizon: {userDict['investment_horizon']}, 
+    Investment Objective: {userDict['investment_objective']}, 
+    Investment Risk: {userDict['investment_risk']}, 
+    Preferred Asset Class: {', '.join(userDict['preferred_asset_class'])}, 
     Existing Investments: {', '.join(userDict['existing_investments'])}
     """
+    prompt = prompt.replace("\n", "")
     return prompt
 
 # Streamlit app
 def app():
+    print(api_url)
     st.title("AI Wizards Fiancial Advisor")
     st.write("Welcome to the your Finacial Advisor! Enter the following information:")
     
