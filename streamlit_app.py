@@ -2,10 +2,32 @@ import streamlit as st
 st.set_page_config(layout="wide")
 import requests
 import os
+import uuid
+
 api_url = os.environ.get("API_URL")
+data_store_api_url = os.environ.get("DATA_STORE_API_URL")
 
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
+
+def get_session_id():
+    if 'session_id' not in st.session_state:
+        st.session_state['session_id'] = str(uuid.uuid4())
+    return st.session_state['session_id']
+
+# Function to store user information
+def store_user_info(userDict):
+    request_body = {
+        'body': {
+            'user_profile': userDict
+            }
+    }
+    try:
+        response = requests.post(data_store_api_url, json=request_body)
+        response.raise_for_status()  # Raise an exception for non-2xx status codes
+    except requests.exceptions.RequestException as e:
+        print(f'Error: {e}')
+        api_response = 'Sorry, something went wrong. Please try again later.'
 
 # Function to get the bot's response
 def get_bot_response(userInput):
@@ -31,16 +53,16 @@ def get_user_inputs(container):
         with st.form("user_input_form"):
 
             # Get user input for name
-            name = st.text_input("Enter your name:", key="name",disabled=st.session_state.disabled)
-
-            # Get user input for income
-            income = st.number_input("Enter your income:", min_value=0.0, step=100.0, max_value=1000000000.0,disabled=st.session_state.disabled)
-
-            #Get user input for total networth
-            total_networth = st.number_input("Enter your Total Networth:", min_value=0.0, step=1000.0, max_value=1000000000.0,disabled=st.session_state.disabled)
+            name = st.text_input("Enter your Name:", key="name",disabled=st.session_state.disabled)
 
             # Get user input for age
-            age = st.number_input("Enter your age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled)
+            age = st.number_input("Enter your Age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled)
+
+            # Get user input for income
+            income = st.number_input("Enter your Annual Income:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,value=0)
+
+            #Get user input for total networth
+            total_networth = st.number_input("Enter your Total Networth:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,value=0)
 
             #Get user input for investment horizon
             investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"],horizontal=True,disabled=st.session_state.disabled)
@@ -52,15 +74,15 @@ def get_user_inputs(container):
             investment_risk = st.radio("Select your Investment Risk:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
 
             #Get user input for preferred asset class
-            preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs"],disabled=st.session_state.disabled)
+            preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)"],disabled=st.session_state.disabled)
 
             #Get user input for existing investments
-            existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "None"],disabled=st.session_state.disabled)
+            existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
 
             # Submit button
             submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
             if submitted:
-                userDict = {"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments}
+                userDict = {"session_id":st.session_state['session_id'],"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments}
                 return userDict
 
 def generate_prompt(userDict):
@@ -81,6 +103,7 @@ def generate_prompt(userDict):
 # Streamlit app
 def app():
     print(api_url)
+    print(get_session_id())
     st.title("AI Wizards Fiancial Advisor")
     st.write("Welcome to the your Finacial Advisor! Enter the following information:")
     
@@ -101,6 +124,9 @@ def app():
     
     # Get the bot's response
     if userDict:
+        # Store user information
+        store_user_info(userDict)
+
         userPrompt= generate_prompt(userDict)
         st.session_state.messages.append({"role": "user", "content": userPrompt})
     
