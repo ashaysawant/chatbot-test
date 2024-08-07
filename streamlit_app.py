@@ -4,19 +4,44 @@ import requests
 import os
 import uuid
 
+####
+from langchain.prompts import PromptTemplate
+PROMPT_TEMPLATE2 = """
+System: You are a financial advisor AI system, and provides answers to questions by using fact based and statistical information when possible. 
+Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+<history>
+{history}
+</history>
+
+<question>
+{question}
+</question>
+
+The response should be specific and use statistics or numbers when possible.
+"""
+
 api_url = os.environ.get("API_URL")
 data_store_api_url = os.environ.get("DATA_STORE_API_URL")
 
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
 
+###########
+# using retrieve and generate
+def generate_prompt_with_history(question, history):
+    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["history"])
+    qa_prompt = LLM_PROMPT.format(question=question,history=history)
+    print(qa_prompt)
+    return qa_prompt
+
 def get_session_id():
     if 'session_id' not in st.session_state:
         st.session_state['session_id'] = str(uuid.uuid4())
-    return st.session_state['session_id']
 
 # Function to store user information
 def store_user_info(userDict):
+    #user_profile = userDict
     request_body = {
         'body': {
             'user_profile': userDict
@@ -25,9 +50,11 @@ def store_user_info(userDict):
     try:
         response = requests.post(data_store_api_url, json=request_body)
         response.raise_for_status()  # Raise an exception for non-2xx status codes
+        api_response = response.text
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
         api_response = 'Sorry, something went wrong. Please try again later.'
+    print(api_response)
 
 # Function to get the bot's response
 def get_bot_response(userInput):
@@ -82,8 +109,12 @@ def get_user_inputs(container):
             # Submit button
             submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
             if submitted:
-                userDict = {"session_id":st.session_state['session_id'],"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments}
+                userDict = {"session_id":st.session_state['session_id'],"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments,"history":st.session_state.messages}
                 return userDict
+
+def update_user_dict(userDict, history):
+    userDict["history"]=history
+    return userDict
 
 def generate_prompt(userDict):
     prompt = f"""Generate a personalized investment portfolio based on the following user information: 
@@ -102,8 +133,9 @@ def generate_prompt(userDict):
 
 # Streamlit app
 def app():
-    print(api_url)
-    print(get_session_id())
+    #print(api_url)
+    get_session_id()
+    
     st.title("AI Wizards Fiancial Advisor")
     st.write("Welcome to the your Finacial Advisor! Enter the following information:")
     
@@ -118,21 +150,25 @@ def app():
     # Initialize conversation history
     if "messages" not in st.session_state.keys():
         st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
-
+    
     # Create a form for user input
     userDict = get_user_inputs(left1)
     
     # Get the bot's response
     if userDict:
         # Store user information
-        store_user_info(userDict)
+        #store_user_info(userDict)
 
         userPrompt= generate_prompt(userDict)
-        st.session_state.messages.append({"role": "user", "content": userPrompt})
-    
-        bot_response = get_bot_response(userPrompt)
-        st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
+        question = generate_prompt_with_history(userPrompt,st.session_state.messages)
+
+        st.session_state.messages.append({"role": "user", "content": userPrompt})
+        #bot_response = get_bot_response(userPrompt)
+        bot_response = get_bot_response(question)
+        st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        userDict = update_user_dict(userDict, st.session_state.messages)
+        
     #with right:
     userInput = row1[1].chat_input("Ask your question to improve the response or type Reset to start from beginning",disabled=not(st.session_state.disabled))
 
@@ -141,16 +177,22 @@ def app():
             st.session_state["disabled"] = False
             userDict=None
             st.rerun()
-        
-        st.session_state.messages.append({"role": "user", "content": userInput})            
-        bot_response = get_bot_response(userInput)
+        userDict = st.session_state.user_dict
+        st.session_state.messages.append({"role": "user", "content": userInput})
+        question = generate_prompt_with_history(userInput,st.session_state.messages)
+        bot_response = get_bot_response(question)
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
-
+        userDict = update_user_dict(userDict, st.session_state.messages)
+        
     # Display chat messages
     for message in st.session_state.messages:
         with right1:
             with st.chat_message(message["role"]):
                 st.write(message["content"])
+    # Store user information
+    store_user_info(userDict)
+        
+    st.session_state.user_dict = userDict
 
 if __name__ == "__main__":
     app()
