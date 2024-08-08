@@ -3,12 +3,15 @@ st.set_page_config(layout="wide")
 import requests
 import os
 import uuid
+from itertools import islice
+import time
 
-####
 from langchain.prompts import PromptTemplate
 PROMPT_TEMPLATE2 = """
 System: You are a financial advisor AI system, and provides answers to questions by using fact based and statistical information when possible. 
 Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
+Users previous chat history is provided in <history> tags.
+If the question is not related to financial information, politely inform the user that you can only answer related to financial questions.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 <history>
 {history}
@@ -27,12 +30,10 @@ data_store_api_url = os.environ.get("DATA_STORE_API_URL")
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
 
-###########
 # using retrieve and generate
 def generate_prompt_with_history(question, history):
     LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["history"])
     qa_prompt = LLM_PROMPT.format(question=question,history=history)
-    print(qa_prompt)
     return qa_prompt
 
 def get_session_id():
@@ -41,7 +42,6 @@ def get_session_id():
 
 # Function to store user information
 def store_user_info(userDict):
-    #user_profile = userDict
     request_body = {
         'body': {
             'user_profile': userDict
@@ -54,7 +54,6 @@ def store_user_info(userDict):
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
         api_response = 'Sorry, something went wrong. Please try again later.'
-    print(api_response)
 
 # Function to get the bot's response
 def get_bot_response(userInput):
@@ -131,45 +130,52 @@ def generate_prompt(userDict):
     prompt = prompt.replace("\n", "")
     return prompt
 
+def update_chat_messages(container):
+    #Display chat messages
+    message = st.session_state.messages[-1]
+    with container:
+        with st.chat_message(message["role"]):
+            resp = message["content"].replace('\\n', '  <br />  ')
+            print(resp)
+            st.markdown(resp,unsafe_allow_html=True)
+
 # Streamlit app
 def app():
-    #print(api_url)
     get_session_id()
     
     st.title("AI Wizards Fiancial Advisor")
     st.write("Welcome to the your Finacial Advisor! Enter the following information:")
     
-    row1= st.columns(2)
-    
+    row1= st.columns(2)    
     with row1[0]:
-        left1 = st.container(height=880)
-
+        left_container = st.container(height=880)
     with row1[1]:
-        right1 = st.container(height=800)
+        right_container = st.container(height=800)
 
     # Initialize conversation history
     if "messages" not in st.session_state.keys():
         st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
-    
     # Create a form for user input
-    userDict = get_user_inputs(left1)
+    userDict = get_user_inputs(left_container)
     
+    for message in st.session_state.messages:
+        with right_container:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
+
     # Get the bot's response
     if userDict:
-        # Store user information
-        #store_user_info(userDict)
-
         userPrompt= generate_prompt(userDict)
-
         question = generate_prompt_with_history(userPrompt,st.session_state.messages)
-
         st.session_state.messages.append({"role": "user", "content": userPrompt})
-        #bot_response = get_bot_response(userPrompt)
-        bot_response = get_bot_response(question)
+        update_chat_messages(right_container)
+        with right_container:
+            with st.spinner('Generating response...'):
+                bot_response = get_bot_response(question)
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        update_chat_messages(right_container)
         userDict = update_user_dict(userDict, st.session_state.messages)
         
-    #with right:
     userInput = row1[1].chat_input("Ask your question to improve the response or type Reset to start from beginning",disabled=not(st.session_state.disabled))
 
     if userInput:
@@ -177,20 +183,22 @@ def app():
             st.session_state["disabled"] = False
             userDict=None
             st.rerun()
+        
         userDict = st.session_state.user_dict
         st.session_state.messages.append({"role": "user", "content": userInput})
+        update_chat_messages(right_container)
         question = generate_prompt_with_history(userInput,st.session_state.messages)
-        bot_response = get_bot_response(question)
+        with right_container:
+            with st.spinner('Generating response...'):
+                bot_response = get_bot_response(question)
+
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        update_chat_messages(right_container)
         userDict = update_user_dict(userDict, st.session_state.messages)
         
-    # Display chat messages
-    for message in st.session_state.messages:
-        with right1:
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
     # Store user information
-    store_user_info(userDict)
+    if userDict:
+        store_user_info(userDict)
         
     st.session_state.user_dict = userDict
 
