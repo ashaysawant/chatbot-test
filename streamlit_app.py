@@ -76,10 +76,10 @@ def get_bot_response(userInput):
         response = requests.post(api_url, json=request_body)
         response.raise_for_status()  # Raise an exception for non-2xx status codes
         api_response = response.text
-        print(api_response)
+        #print(api_response)
         api_json = json.loads(api_response)
         bot_response = api_json["output"] #.replace('\\n', '  <br />  ')
-        print(bot_response)
+        #print(bot_response)
         st.session_state['session_id'] = api_json["sessionId"]
         if "citations" in api_json.keys(): 
             citations = api_json["citations"]
