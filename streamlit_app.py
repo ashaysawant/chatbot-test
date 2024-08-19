@@ -8,17 +8,20 @@ import time
 import json
 
 from langchain.prompts import PromptTemplate
+
+#Users previous chat history is provided in <history> tags.
+# <history>
+# {history}
+# </history>
+
 PROMPT_TEMPLATE2 = """
 System: You are a financial advisor AI system, and provides answers to questions by using fact based and statistical information when possible. 
 Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
-Users previous chat history is provided in <history> tags.
+
 If the question is not related to financial information, politely inform the user that you can only answer related to financial questions.
 Provide suggestion using the 'preferred_asset_class' tag specified in <userData> tag.
 Based on the suggestions generated, provide top 5 investment products from each of the 'preferred_asset_class' in a csv format in a separate tag as <investmentOptions>.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
-<history>
-{history}
-</history>
 
 <question>
 {question}
@@ -39,11 +42,11 @@ if "disabled" not in st.session_state:
 
 # using retrieve and generate
 def generate_prompt_with_history(question, history,userDict):
-    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["history","userData"])
+    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["userData"]) #"history",
     userDict["history"]=''
     json_string = json.dumps(userDict)
-    qa_prompt = LLM_PROMPT.format(question=question,history=history,userData=json_string)
-    #print(qa_prompt)
+    qa_prompt = LLM_PROMPT.format(question=question,userData=json_string) #history=history,
+    print(qa_prompt)
     return qa_prompt
 
 def get_session_id():
@@ -72,24 +75,28 @@ def get_bot_response(userInput):
         "sessionId":st.session_state['session_id']
     }
     #print(request_body)
+    api_json = dict()
+    bot_response = ''
     try:
         response = requests.post(api_url, json=request_body)
         response.raise_for_status()  # Raise an exception for non-2xx status codes
         api_response = response.text
         #print(api_response)
         api_json = json.loads(api_response)
-        bot_response = api_json["output"] #.replace('\\n', '  <br />  ')
+        bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
         #print(bot_response)
-        st.session_state['session_id'] = api_json["sessionId"]
-        if "citations" in api_json.keys(): 
-            citations = api_json["citations"]
-            st.session_state.messages.append({"role": "assistant", "content": bot_response, "citations":citations})
         #else:
         #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
         bot_response = 'Sorry, something went wrong. Please try again later.'
 
+    if "sessionId" in api_json.keys():
+        st.session_state['session_id'] = api_json["sessionId"]
+    if "citations" in api_json.keys(): 
+        citations = api_json["citations"]
+        #print(citations)
+        st.session_state.messages.append({"role": "assistant", "content": bot_response, "citations":citations})
     return bot_response
 
 def disable():
@@ -158,7 +165,7 @@ def generate_prompt(userDict):
     {userDict['name']} is looking to invest for {userDict['investment_horizon']} with their investment objective of {userDict['investment_objective']}.
     {userDict['name']}'s risk appetite is {userDict['investment_risk']}. Their preferred investment asset classes are {', '.join(userDict['preferred_asset_class'])} and having existing investments in {', '.join(userDict['existing_investments'])}.
     """    
-    
+
     prompt = prompt.replace("\n", "")
     return prompt
 
@@ -174,7 +181,7 @@ def update_chat_messages(container):
                     for citation in message["citations"]:
                         retrievedReferences = citation["retrievedReferences"]
                         for reference in retrievedReferences:
-                            st.markdown("Reference : "+reference["content"]["text"], unsafe_allow_html=True)
+                            st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
                             location = reference["location"]
                             if "S3" == location["type"]:
                                 st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
@@ -186,8 +193,8 @@ def update_chat_messages(container):
 def app():
     get_session_id()
     
-    st.title("AI Wizards Fiancial Advisor")
-    st.write("Welcome to the your Finacial Advisor! Enter the following information:")
+    st.title("AI Wizards Financial Advisor")
+    st.write("Welcome to the your Financial Advisor! Enter the following information:")
     
     row1= st.columns(2)    
     with row1[0]:
@@ -210,7 +217,7 @@ def app():
                         for citation in message["citations"]:
                             retrievedReferences = citation["retrievedReferences"]
                             for reference in retrievedReferences:
-                                st.markdown("Reference : "+reference["content"]["text"], unsafe_allow_html=True)
+                                st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
                                 location = reference["location"]
                                 if "S3" == location["type"]:
                                     st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
