@@ -75,11 +75,17 @@ def get_bot_response(userInput):
     try:
         response = requests.post(api_url, json=request_body)
         response.raise_for_status()  # Raise an exception for non-2xx status codes
-        api_response = response.text.replace('\\n', '  <br />  ')
-        #print(api_response)
+        api_response = response.text
+        print(api_response)
         api_json = json.loads(api_response)
-        bot_response = api_json["output"]
+        bot_response = api_json["output"] #.replace('\\n', '  <br />  ')
+        print(bot_response)
         st.session_state['session_id'] = api_json["sessionId"]
+        if "citations" in api_json.keys(): 
+            citations = api_json["citations"]
+            st.session_state.messages.append({"role": "assistant", "content": bot_response, "citations":citations})
+        #else:
+        #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
         bot_response = 'Sorry, something went wrong. Please try again later.'
@@ -121,6 +127,10 @@ def get_user_inputs(container):
             #Get user input for existing investments
             existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
 
+            #inner_container = st.columns(3)
+            #inner_container[0].selectbox("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
+            #inner_container[1].number_input
+
             # Submit button
             submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
             if submitted:
@@ -148,8 +158,7 @@ def generate_prompt(userDict):
     {userDict['name']} is looking to invest for {userDict['investment_horizon']} with their investment objective of {userDict['investment_objective']}.
     {userDict['name']}'s risk appetite is {userDict['investment_risk']}. Their preferred investment asset classes are {', '.join(userDict['preferred_asset_class'])} and having existing investments in {', '.join(userDict['existing_investments'])}.
     """    
-    #print(prompt2)
-
+    
     prompt = prompt.replace("\n", "")
     return prompt
 
@@ -160,6 +169,18 @@ def update_chat_messages(container):
         with st.chat_message(message["role"]):
             #resp = message["content"].replace('\\n', '  <br />  ')
             st.markdown(message["content"],unsafe_allow_html=True)
+            if "citations" in message.keys():
+                with st.expander("See Context Information"):
+                    for citation in message["citations"]:
+                        retrievedReferences = citation["retrievedReferences"]
+                        for reference in retrievedReferences:
+                            st.markdown("Reference : "+reference["content"]["text"], unsafe_allow_html=True)
+                            location = reference["location"]
+                            if "S3" == location["type"]:
+                                st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
+                            elif "WEB" == location["type"]:
+                                st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
+                            st.divider()
 
 # Streamlit app
 def app():
@@ -184,6 +205,18 @@ def app():
         with right_container:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"],unsafe_allow_html=True)
+                if "citations" in message.keys():
+                    with st.expander("See Context Information"):
+                        for citation in message["citations"]:
+                            retrievedReferences = citation["retrievedReferences"]
+                            for reference in retrievedReferences:
+                                st.markdown("Reference : "+reference["content"]["text"], unsafe_allow_html=True)
+                                location = reference["location"]
+                                if "S3" == location["type"]:
+                                    st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
+                                elif "WEB" == location["type"]:
+                                    st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
+                                st.divider()
 
     # Get the bot's response
     if userDict:
@@ -195,7 +228,7 @@ def app():
             with st.spinner('Generating response...'):
                 bot_response = get_bot_response(question)
         
-        st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        
         update_chat_messages(right_container)
         userDict = update_user_dict(userDict, st.session_state.messages)
         
@@ -215,7 +248,6 @@ def app():
             with st.spinner('Generating response...'):
                 bot_response = get_bot_response(question)
 
-        st.session_state.messages.append({"role": "assistant", "content": bot_response})
         update_chat_messages(right_container)
         userDict = update_user_dict(userDict, st.session_state.messages)
     
