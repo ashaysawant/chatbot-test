@@ -6,6 +6,7 @@ import uuid
 from itertools import islice
 import time
 import json
+import boto3
 
 from langchain.prompts import PromptTemplate
 
@@ -36,6 +37,7 @@ The response should be specific and use statistics or numbers when possible.
 
 api_url = os.environ.get("API_URL")
 data_store_api_url = os.environ.get("DATA_STORE_API_URL")
+use_lambda_client = os.environ.get("USE_LAMBDA_CLIENT")
 
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
@@ -77,14 +79,27 @@ def get_bot_response(userInput):
     #print(request_body)
     api_json = dict()
     bot_response = ''
+    
     try:
-        response = requests.post(api_url, json=request_body)
-        response.raise_for_status()  # Raise an exception for non-2xx status codes
-        api_response = response.text
+        if use_lambda_client:
+            lambda_client = boto3.client('lambda')
+            lambda_response = lambda_client.invoke(
+                FunctionName='Agent',
+                InvocationType='RequestResponse',
+                Payload=json.dumps(request_body)
+            )
+            
+            response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+            api_json = response['body']
+        else:
+            response = requests.post(api_url, json=request_body)
+            #print(bot_response)
+            response.raise_for_status()  # Raise an exception for non-2xx status codes
+            api_response = response.text
+            api_json = json.loads(api_response)
         #print(api_response)
-        api_json = json.loads(api_response)
         bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
-        #print(bot_response)
+        
         #else:
         #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
     except requests.exceptions.RequestException as e:
@@ -102,9 +117,9 @@ def get_bot_response(userInput):
 def disable():
     st.session_state["disabled"] = True
 
-def get_user_inputs(container):
+def get_user_inputs(ctr):
     # Create a form for user input
-    with container: 
+    with ctr: 
         with st.form("user_input_form"):
 
             # Get user input for name
@@ -122,26 +137,32 @@ def get_user_inputs(container):
             #Get user input for investment horizon
             investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"],horizontal=True,disabled=st.session_state.disabled)
 
-            #Get user input for investment objective
-            investment_objective = st.radio("Select your Investment Objective:", options=["Retirement", "Education", "Income Generation"],horizontal=True,disabled=st.session_state.disabled)
+            #Get user input for financial goal
+            financial_goal = st.radio("Select your Financial Goal:", options=["Retirement", "Education", "Income Generation","Travel","Home Purchase"],horizontal=True,disabled=st.session_state.disabled)
 
-            #Get user input for investment risk
-            investment_risk = st.radio("Select your Investment Risk:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
+            #Get user input for risk tolerance
+            risk_tolerance = st.radio("Select your Risk Tolerance:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
 
             #Get user input for preferred asset class
             preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)"],disabled=st.session_state.disabled)
 
             #Get user input for existing investments
-            existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
+            #existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
 
-            #inner_container = st.columns(3)
-            #inner_container[0].selectbox("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
-            #inner_container[1].number_input
-
+            st.write("Enter the value of your Current Portfolio:")
+            left,middle, right = st.columns(3)
+            with left:
+                stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+            with middle:
+                bonds_investments = st.number_input("Bonds:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+            with right:
+                real_estate_investments = st.number_input("Real Estate:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+            
+            current_portfolio = {"Stocks":stocks_investments, "Bonds":bonds_investments, "Real Estate":real_estate_investments}
             # Submit button
             submitted = st.form_submit_button("Submit",on_click=disable,disabled=st.session_state.disabled)
             if submitted:
-                userDict = {"session_id":st.session_state['session_id'],"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "investment_objective": investment_objective, "investment_risk": investment_risk, "preferred_asset_class": preferred_asset_class, "existing_investments": existing_investments,"history":st.session_state.messages}
+                userDict = {"session_id":st.session_state['session_id'],"name": name, "income": income, "total_networth": total_networth, "age": age, "investment_horizon": investment_horizon, "financial_goal": financial_goal, "risk_tolerance": risk_tolerance, "preferred_asset_class": preferred_asset_class, "current_portfolio": current_portfolio,"history":st.session_state.messages}
                 return userDict
 
 def update_user_dict(userDict, history):
@@ -155,15 +176,15 @@ def generate_prompt(userDict):
     Total Networth: {userDict['total_networth']}, 
     Age: {userDict['age']}, 
     Investment Horizon: {userDict['investment_horizon']}, 
-    Investment Objective: {userDict['investment_objective']}, 
-    Investment Risk: {userDict['investment_risk']}, 
+    Financial Goal: {userDict['financial_goal']}, 
+    Risk Tolerance: {userDict['risk_tolerance']}, 
     Preferred Asset Class: {', '.join(userDict['preferred_asset_class'])}, 
-    Existing Investments: {', '.join(userDict['existing_investments'])}
+    Current Portfolio: {userDict['current_portfolio']}
     """
 
     prompt2 = f"""Generate a personalized investment portfolio based on the following user information for {userDict['name']} with age of {userDict['age']} having annual income of {userDict['income']} and having total networth of {userDict['total_networth']}.
-    {userDict['name']} is looking to invest for {userDict['investment_horizon']} with their investment objective of {userDict['investment_objective']}.
-    {userDict['name']}'s risk appetite is {userDict['investment_risk']}. Their preferred investment asset classes are {', '.join(userDict['preferred_asset_class'])} and having existing investments in {', '.join(userDict['existing_investments'])}.
+    {userDict['name']} is looking to invest for {userDict['investment_horizon']} with their financial goal of {userDict['financial_goal']}.
+    {userDict['name']}'s risk tolerance is {userDict['risk_tolerance']}. Their preferred investment asset classes are {', '.join(userDict['preferred_asset_class'])} and having current portfolio of {userDict['current_portfolio']}.
     """    
 
     prompt = prompt.replace("\n", "")
@@ -176,7 +197,7 @@ def update_chat_messages(container):
         with st.chat_message(message["role"]):
             #resp = message["content"].replace('\\n', '  <br />  ')
             st.markdown(message["content"],unsafe_allow_html=True)
-            if "citations" in message.keys():
+            if "citations" in message.keys() and message["citations"] is not None:
                 with st.expander("See Context Information"):
                     for citation in message["citations"]:
                         retrievedReferences = citation["retrievedReferences"]
@@ -193,18 +214,21 @@ def update_chat_messages(container):
 def app():
     get_session_id()
     
-    st.title("AI Wizards Financial Advisor")
-    st.write("Welcome to the your Financial Advisor! Enter the following information:")
+
+    st.markdown("<h1 style='text-align: center;'>AI Wizards Financial Advisor</h1>", unsafe_allow_html=True)
+    #st.title("AI Wizards Financial Advisor")
+    #st.write("Welcome to the your Financial Advisor! Enter the following information:")
+    st.markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor! Enter the following information:</p>", unsafe_allow_html=True)
     
     row1= st.columns(2)    
     with row1[0]:
-        left_container = st.container(height=880)
+        left_container = st.container(height=920)
     with row1[1]:
-        right_container = st.container(height=800)
+        right_container = st.container(height=840)
 
     # Initialize conversation history
     if "messages" not in st.session_state.keys():
-        st.session_state.messages = [{"role": "assistant", "content": "Enter user information"}]
+        st.session_state.messages = [{"role": "assistant", "content": "Enter user information","citations":None}]
     # Create a form for user input
     userDict = get_user_inputs(left_container)
     
@@ -212,7 +236,7 @@ def app():
         with right_container:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"],unsafe_allow_html=True)
-                if "citations" in message.keys():
+                if "citations" in message.keys() and message["citations"] is not None:
                     with st.expander("See Context Information"):
                         for citation in message["citations"]:
                             retrievedReferences = citation["retrievedReferences"]
@@ -229,7 +253,7 @@ def app():
     if userDict:
         userPrompt= generate_prompt(userDict)
         question = generate_prompt_with_history(userPrompt,st.session_state.messages,userDict)
-        st.session_state.messages.append({"role": "user", "content": userPrompt})
+        st.session_state.messages.append({"role": "user", "content": userPrompt,"citations":None})
         update_chat_messages(right_container)
         with right_container:
             with st.spinner('Generating response...'):
@@ -248,7 +272,7 @@ def app():
             st.rerun()
         
         userDict = st.session_state.user_dict
-        st.session_state.messages.append({"role": "user", "content": userInput})
+        st.session_state.messages.append({"role": "user", "content": userInput,"citations":None})
         update_chat_messages(right_container)
         question = generate_prompt_with_history(userInput,st.session_state.messages,userDict)
         with right_container:
