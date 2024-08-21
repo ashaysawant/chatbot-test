@@ -2,9 +2,6 @@ import streamlit as st
 st.set_page_config(layout="wide")
 import requests
 import os
-import uuid
-from itertools import islice
-import time
 import json
 import boto3
 
@@ -21,7 +18,7 @@ Use the following pieces of information to provide a concise answer to the quest
 
 If the question is not related to financial information, politely inform the user that you can only answer related to financial questions.
 Provide suggestion using the 'preferred_asset_class' tag specified in <userData> tag.
-Based on the suggestions generated, provide top 5 investment products from each of the 'preferred_asset_class' in a csv format in a separate tag as <investmentOptions>.
+Based on the suggestions generated, provide top 5 investment products from each of the 'preferred_asset_class'.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
 <question>
@@ -193,9 +190,9 @@ def generate_prompt(userDict):
 def update_chat_messages(container):
     #Display chat messages
     message = st.session_state.messages[-1]
+    print(message)
     with container:
         with st.chat_message(message["role"]):
-            #resp = message["content"].replace('\\n', '  <br />  ')
             st.markdown(message["content"],unsafe_allow_html=True)
             if "citations" in message.keys() and message["citations"] is not None:
                 with st.expander("See Context Information"):
@@ -209,15 +206,14 @@ def update_chat_messages(container):
                             elif "WEB" == location["type"]:
                                 st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
                             st.divider()
+            else:
+                st.empty()
 
 # Streamlit app
 def app():
     get_session_id()
-    
 
     st.markdown("<h1 style='text-align: center;'>AI Wizards Financial Advisor</h1>", unsafe_allow_html=True)
-    #st.title("AI Wizards Financial Advisor")
-    #st.write("Welcome to the your Financial Advisor! Enter the following information:")
     st.markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor! Enter the following information:</p>", unsafe_allow_html=True)
     
     row1= st.columns(2)    
@@ -248,6 +244,8 @@ def app():
                                 elif "WEB" == location["type"]:
                                     st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
                                 st.divider()
+                else:
+                    st.empty()
 
     # Get the bot's response
     if userDict:
