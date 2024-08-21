@@ -2,6 +2,9 @@ import streamlit as st
 st.set_page_config(layout="wide")
 import requests
 import os
+import uuid
+from itertools import islice
+import time
 import json
 import boto3
 
@@ -213,9 +216,18 @@ def update_chat_messages(container):
 def app():
     get_session_id()
 
-    st.markdown("<h1 style='text-align: center;'>AI Wizards Financial Advisor</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor! Enter the following information:</p>", unsafe_allow_html=True)
-    
+    header_container = st.columns(3)
+    header_container[0].image("online-banking.png",width=200)
+    hide_img_fs = '''
+    <style>
+    button[title="View fullscreen"]{
+        visibility: hidden;}
+    </style>
+    '''
+    header_container[0].markdown(hide_img_fs, unsafe_allow_html=True)
+    header_container[1].markdown("<h2 style='text-align: center;'>AI Wizards Financial Advisor</h2>", unsafe_allow_html=True)
+    header_container[1].markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor!</p>", unsafe_allow_html=True)
+
     row1= st.columns(2)    
     with row1[0]:
         left_container = st.container(height=920)
@@ -226,6 +238,7 @@ def app():
     if "messages" not in st.session_state.keys():
         st.session_state.messages = [{"role": "assistant", "content": "Enter user information","citations":None}]
     # Create a form for user input
+    #left_container.text("User information:")
     userDict = get_user_inputs(left_container)
     
     for message in st.session_state.messages:
