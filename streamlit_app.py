@@ -215,18 +215,20 @@ def update_chat_messages(container):
 # Streamlit app
 def app():
     get_session_id()
-
-    header_container = st.columns(3)
-    header_container[0].image("online-banking.png",width=200)
+    #st.logo("logo.png")
+    st.image("Banner2.png")
+    #st.title("AI Wizards Financial Advisor")
+    #header_container = st.columns(3)
+    #header_container[0].image("logo.png",width=150)
     hide_img_fs = '''
     <style>
     button[title="View fullscreen"]{
         visibility: hidden;}
     </style>
     '''
-    header_container[0].markdown(hide_img_fs, unsafe_allow_html=True)
-    header_container[1].markdown("<h2 style='text-align: center;'>AI Wizards Financial Advisor</h2>", unsafe_allow_html=True)
-    header_container[1].markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor!</p>", unsafe_allow_html=True)
+    st.markdown(hide_img_fs, unsafe_allow_html=True)
+    #header_container[1].markdown("<h2 style='text-align: center;'>AI Wizards Financial Advisor</h2>", unsafe_allow_html=True)
+    #header_container[1].markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor!</p>", unsafe_allow_html=True)
 
     row1= st.columns(2)    
     with row1[0]:
