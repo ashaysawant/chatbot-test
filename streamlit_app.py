@@ -35,9 +35,9 @@ If you don't know the answer, just say that you don't know, don't try to make up
 The response should be specific and use statistics or numbers when possible.
 """
 
-api_url = os.environ.get("API_URL")
-data_store_api_url = os.environ.get("DATA_STORE_API_URL")
-use_lambda_client = os.environ.get("USE_LAMBDA_CLIENT")
+#api_url = os.environ.get("API_URL")
+#data_store_api_url = os.environ.get("DATA_STORE_API_URL")
+#use_lambda_client = os.environ.get("USE_LAMBDA_CLIENT")
 
 if "disabled" not in st.session_state:
     st.session_state["disabled"] = False
@@ -48,7 +48,7 @@ def generate_prompt_with_history(question, history,userDict):
     userDict["history"]=''
     json_string = json.dumps(userDict)
     qa_prompt = LLM_PROMPT.format(question=question,userData=json_string) #history=history,
-    print(qa_prompt)
+    #print(qa_prompt)
     return qa_prompt
 
 def get_session_id():
@@ -62,13 +62,28 @@ def store_user_info(userDict):
             'user_profile': userDict
             }
     }
+    # try:
+    #     response = requests.post(data_store_api_url, json=request_body)
+    #     response.raise_for_status()  # Raise an exception for non-2xx status codes
+    #     api_response = response.text
+    # except requests.exceptions.RequestException as e:
+    #     print(f'Error: {e}')
+    #     api_response = 'Sorry, something went wrong. Please try again later.'
     try:
-        response = requests.post(data_store_api_url, json=request_body)
-        response.raise_for_status()  # Raise an exception for non-2xx status codes
-        api_response = response.text
+        lambda_client = boto3.client('lambda')
+        lambda_response = lambda_client.invoke(
+            FunctionName='StoreProfile',
+            InvocationType='RequestResponse',
+            Payload=json.dumps(request_body)
+        )
+        
+        response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+        print(response)
+        api_json = response['body']
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
-        api_response = 'Sorry, something went wrong. Please try again later.'
+        bot_response = 'Sorry, something went wrong while storing the data. Please try again later.'
+
 
 # Function to get the bot's response
 def get_bot_response(userInput):
@@ -81,23 +96,24 @@ def get_bot_response(userInput):
     bot_response = ''
     
     try:
-        if use_lambda_client:
-            lambda_client = boto3.client('lambda')
-            lambda_response = lambda_client.invoke(
-                FunctionName='Agent',
-                InvocationType='RequestResponse',
-                Payload=json.dumps(request_body)
-            )
-            
-            response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
-            api_json = response['body']
-        else:
-            response = requests.post(api_url, json=request_body)
-            #print(bot_response)
-            response.raise_for_status()  # Raise an exception for non-2xx status codes
-            api_response = response.text
-            api_json = json.loads(api_response)
-        #print(api_response)
+        # if use_lambda_client:
+        lambda_client = boto3.client('lambda')
+        lambda_response = lambda_client.invoke(
+            FunctionName='agent',
+            InvocationType='RequestResponse',
+            Payload=json.dumps(request_body)
+        )
+        
+        response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+        #print(response)
+        api_json = response['body']
+        # else:
+        #     response = requests.post(api_url, json=request_body)
+        #     #print(bot_response)
+        #     response.raise_for_status()  # Raise an exception for non-2xx status codes
+        #     api_response = response.text
+        #     api_json = json.loads(api_response)
+        #print(api_json)
         bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
         
         #else:
@@ -149,7 +165,7 @@ def get_user_inputs(ctr):
             #Get user input for existing investments
             #existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
 
-            st.write("Enter the value of your Current Portfolio:")
+            st.write("Enter the value of your Current Portfolio:",)
             left,middle, right = st.columns(3)
             with left:
                 stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
@@ -193,7 +209,7 @@ def generate_prompt(userDict):
 def update_chat_messages(container):
     #Display chat messages
     message = st.session_state.messages[-1]
-    print(message)
+    #print(message)
     with container:
         with st.chat_message(message["role"]):
             st.markdown(message["content"],unsafe_allow_html=True)
