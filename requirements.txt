@@ -2,3 +2,4 @@ streamlit
 boto3
 botocore
 langchain
+pyarrow==15.0.0
