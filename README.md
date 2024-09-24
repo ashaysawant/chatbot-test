@@ -13,5 +13,5 @@ A simple Streamlit app that shows how to build a chatbot using Amazon Bedrock.
 2. Run the app
 
    ```
-   $ streamlit run streamlit_app.py
+   $ streamlit run home.py
    ```
