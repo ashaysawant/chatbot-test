@@ -38,7 +38,7 @@ def generate_prompt(question):
 def get_bot_response(userInput):
     request_body = {
         "message": userInput,
-        "sessionId":st.session_state['session_id']
+        "sessionId":st.session_state['ia_session_id']
     }
     api_json = dict()
     bot_response = ''
@@ -58,8 +58,8 @@ def get_bot_response(userInput):
         print(f'Error: {e}')
         bot_response = 'Sorry, something went wrong. Please try again later.'
 
-    if "sessionId" in api_json.keys():
-        st.session_state['session_id'] = api_json["sessionId"]
+    if "ia_sessionId" in api_json.keys():
+        st.session_state['ia_session_id'] = api_json["sessionId"]
     if "citations" in api_json.keys(): 
         citations = api_json["citations"]
         st.session_state.ia_messages.append({"role": "assistant", "content": bot_response, "citations":citations})
@@ -69,7 +69,7 @@ def get_bot_response(userInput):
 def store_user_info(chat_history):
     request_body = {
         'body': {
-            'sessionId':st.session_state['session_id'],
+            'sessionId':st.session_state['ia_session_id'],
             'chat_history': chat_history
             }
     }
@@ -124,6 +124,8 @@ def as_float(obj):
 
 
 def app():
+    if 'ia_session_id' not in st.session_state:
+        st.session_state['ia_session_id'] = None
     st.image("IA_Banner.png")
     hide_img_fs = '''
     <style>
