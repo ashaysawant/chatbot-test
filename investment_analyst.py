@@ -1,11 +1,10 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
 import json
-from streamlit_pills import pills
-import time
-import pyperclip
-import random
+import boto3
+import requests
+from langchain.prompts import PromptTemplate
 
 questions = ["What is Microsoft's expected revenue and earnings growth?", 
                  "Is it better to inevst in Growth stocks or value stocks right now?", 
@@ -26,13 +25,69 @@ If you don't know the answer, just say that you don't know, don't try to make up
 {question}
 </question>
 
-<userData>
-{userData}
-</userData>
-
 The response should be specific and use statistics or numbers when possible.
 """
 #Also give reference to your souces.
+
+def generate_prompt(question):
+    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"]) 
+    qa_prompt = LLM_PROMPT.format(question=question)
+    return qa_prompt
+
+# Function to get the bot's response
+def get_bot_response(userInput):
+    request_body = {
+        "message": userInput,
+        "sessionId":st.session_state['session_id']
+    }
+    api_json = dict()
+    bot_response = ''
+    
+    try:
+        lambda_client = boto3.client('lambda')
+        lambda_response = lambda_client.invoke(
+            FunctionName='agent_is',
+            InvocationType='RequestResponse',
+            Payload=json.dumps(request_body)
+        )
+        response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+        api_json = response['body']
+        bot_response = api_json["output"].replace('$','\\$') 
+        
+    except requests.exceptions.RequestException as e:
+        print(f'Error: {e}')
+        bot_response = 'Sorry, something went wrong. Please try again later.'
+
+    if "sessionId" in api_json.keys():
+        st.session_state['session_id'] = api_json["sessionId"]
+    if "citations" in api_json.keys(): 
+        citations = api_json["citations"]
+        st.session_state.ia_messages.append({"role": "assistant", "content": bot_response, "citations":citations})
+    return bot_response
+
+# Function to store user information
+def store_user_info(chat_history):
+    request_body = {
+        'body': {
+            'sessionId':st.session_state['session_id'],
+            'chat_history': chat_history
+            }
+    }
+    try:
+        lambda_client = boto3.client('lambda')
+        lambda_response = lambda_client.invoke(
+            FunctionName='StoreProfile_IS',
+            InvocationType='RequestResponse',
+            Payload=json.dumps(request_body)
+        )
+        
+        response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+        #print(response)
+        api_json = response['body']
+    except requests.exceptions.RequestException as e:
+        print(f'Error: {e}')
+        bot_response = 'Sorry, something went wrong while storing the data. Please try again later.'
+
 
 def update_chat_messages(container):
     #Display chat messages
@@ -40,20 +95,32 @@ def update_chat_messages(container):
     with container:
         with st.chat_message(message["role"]):
             st.markdown(message["content"],unsafe_allow_html=True)
-            # if "citations" in message.keys() and message["citations"] is not None:
-            #     with st.expander("See Context Information"):
-            #         for citation in message["citations"]:
-            #             retrievedReferences = citation["retrievedReferences"]
-            #             for reference in retrievedReferences:
-            #                 st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
-            #                 location = reference["location"]
-            #                 if "S3" == location["type"]:
-            #                     st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
-            #                 elif "WEB" == location["type"]:
-            #                     st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
-            #                 st.divider()
-            # else:
-            #     st.empty()
+            if "citations" in message.keys() and message["citations"] is not None:
+                with st.expander("See Context Information"):
+                    for citation in message["citations"]:
+                        retrievedReferences = citation["retrievedReferences"]
+                        for reference in retrievedReferences:
+                            st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
+                            location = reference["location"]
+                            if "S3" == location["type"]:
+                                st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
+                            elif "WEB" == location["type"]:
+                                st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
+                            st.divider()
+            else:
+                st.empty()
+
+def as_float(obj):
+    """Checks each dict passed to this function if it contains the key "value"
+    Args:
+        obj (dict): The object to decode
+
+    Returns:
+        dict: The new dictionary with changes if necessary
+    """
+    if "value" in obj:
+        obj["value"] = float(obj["value"])
+    return obj
 
 
 def app():
@@ -75,55 +142,33 @@ def app():
         with ctr:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"],unsafe_allow_html=True)
-                # if "citations" in message.keys() and message["citations"] is not None:
-                #     with st.expander("See Context Information"):
-                #         for citation in message["citations"]:
-                #             retrievedReferences = citation["retrievedReferences"]
-                #             for reference in retrievedReferences:
-                #                 st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
-                #                 location = reference["location"]
-                #                 if "S3" == location["type"]:
-                #                     st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
-                #                 elif "WEB" == location["type"]:
-                #                     st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
-                #                 st.divider()
-                # else:
-                #     st.empty()
+                if "citations" in message.keys() and message["citations"] is not None:
+                    with st.expander("See Context Information"):
+                        for citation in message["citations"]:
+                            retrievedReferences = citation["retrievedReferences"]
+                            for reference in retrievedReferences:
+                                st.markdown("Reference : "+reference["content"]["text"].replace('$','\\$'), unsafe_allow_html=True)
+                                location = reference["location"]
+                                if "S3" == location["type"]:
+                                    st.caption("Location : "+ location["s3Location"]["uri"], unsafe_allow_html=True)
+                                elif "WEB" == location["type"]:
+                                    st.caption("Location : "+ location["webLocation"]["url"], unsafe_allow_html=True)
+                                st.divider()
+                else:
+                    st.empty()
+    st.write("Most frquently asked questions:")
+    for question in questions:
+        st.code(question,language=None)
 
-    # with open("data/GDP.json", "r") as file:
-    #     gdp = json.load(file,object_hook=as_float)['data']
-    #     print(str(gdp))
-    #     chart_data = pd.DataFrame(gdp,columns=['date','value'])
-    #     ctr.line_chart(chart_data,x="date",y="value")
-    # pills_key = random.random()
-    selected = pills("Most frequently asked questions", questions,index=None,clearable=True)#,key=random.random())
-    # if selected:
-    #     userInput = st.chat_input(selected)#,disabled=not(st.session_state.disabled))
-    # else:
-    #
-    if selected:
-        # st.session_state.pills_key=None
-        msg = st.toast("Copied question to clipboard")
-        pyperclip.copy(selected)
-
-        # st_copy_to_clipboard(selected)
-
-    userInput = st.chat_input("Enter your question")#,disabled=not(st.session_state.disabled))
+    userInput = st.chat_input("Enter your question",key='chatInput')
     
     if userInput:
         st.session_state.ia_messages.append({"role": "user", "content": userInput,"citations":None})
         update_chat_messages(ctr)
-
-def as_float(obj):
-    """Checks each dict passed to this function if it contains the key "value"
-    Args:
-        obj (dict): The object to decode
-
-    Returns:
-        dict: The new dictionary with changes if necessary
-    """
-    if "value" in obj:
-        obj["value"] = float(obj["value"])
-    return obj
+        question = generate_prompt(userInput)
+        with st.spinner('Generating response...'):
+            bot_response = get_bot_response(question)
+        update_chat_messages(ctr)
+        store_user_info(st.session_state.ia_messages)
 
 app()
