@@ -3,7 +3,5 @@ boto3
 botocore
 langchain
 pyarrow==15.0.0
-streamlit-pills
 pandas
 numpy
-pyperclip
