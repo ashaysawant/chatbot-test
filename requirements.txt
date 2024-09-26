@@ -1,7 +1,7 @@
 streamlit
 boto3
 botocore
-langchain
+streamlit-extras
 pyarrow==15.0.0
 pandas
 numpy
