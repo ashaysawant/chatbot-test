@@ -51,8 +51,10 @@ def get_bot_response(userInput):
             Payload=json.dumps(request_body)
         )
         response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
+        print(response)
         api_json = response['body']
-        bot_response = api_json["output"]["result"].replace('$','\\$').replace('\[\d*\]','')
+        # bot_response = api_json["output"]["result"].replace('$','\\$').replace('\[\d*\]','')
+        bot_response = api_json["output"].replace('$','\\$')
         
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
