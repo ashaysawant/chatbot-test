@@ -1,13 +1,11 @@
 import streamlit as st
 import requests
-import os
-import uuid
-from itertools import islice
-import time
 import json
 import boto3
-
-from langchain.prompts import PromptTemplate
+# import os
+# import uuid
+# from itertools import islice
+# import time
 
 #Users previous chat history is provided in <history> tags.
 # <history>
@@ -43,7 +41,8 @@ if "disabled" not in st.session_state:
 
 # using retrieve and generate
 def generate_prompt_with_history(question, history,userDict):
-    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["userData"]) #"history",
+    LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question,userData=userDict)
+    # PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["userData"]) #"history",
     userDict["history"]=''
     json_string = json.dumps(userDict)
     qa_prompt = LLM_PROMPT.format(question=question,userData=json_string) #history=history,
@@ -71,7 +70,7 @@ def store_user_info(userDict):
     try:
         lambda_client = boto3.client('lambda')
         lambda_response = lambda_client.invoke(
-            FunctionName='StoreProfile',
+            FunctionName='StoreProfile_ws',
             InvocationType='RequestResponse',
             Payload=json.dumps(request_body)
         )
@@ -98,7 +97,7 @@ def get_bot_response(userInput):
         # if use_lambda_client:
         lambda_client = boto3.client('lambda')
         lambda_response = lambda_client.invoke(
-            FunctionName='agent',
+            FunctionName='agent_ws',
             InvocationType='RequestResponse',
             Payload=json.dumps(request_body)
         )
