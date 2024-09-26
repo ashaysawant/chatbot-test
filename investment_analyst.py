@@ -1,13 +1,12 @@
 import streamlit as st
-# import pandas as pd
-# import numpy as np
 import json
 import boto3
 import requests
-from langchain.prompts import PromptTemplate
 from streamlit_extras.stylable_container import stylable_container
 import logging
 from botocore.exceptions import ClientError
+# import pandas as pd
+# import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,7 @@ def get_ticker(company_name):
     return company_code
 
 def generate_prompt(question):
-    LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"]) 
+    LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question)
     qa_prompt = LLM_PROMPT.format(question=question)
     return qa_prompt
 
