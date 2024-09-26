@@ -52,7 +52,7 @@ def get_bot_response(userInput):
         )
         response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
         api_json = response['body']
-        bot_response = api_json["output"].replace('$','\\$') 
+        bot_response = api_json["output"]["result"].replace('$','\\$').replace('\[\d*\]','')
         
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
@@ -158,9 +158,10 @@ def app():
                                 st.divider()
                 else:
                     st.empty()
-    st.write("Most frquently asked questions:")
-    for question in questions:
-        st.code(question,language=None)
+
+    with st.expander("Most frquently asked questions:"):
+        for question in questions:
+            st.code(question,language=None)
 
     userInput = st.chat_input("Enter your question",key='chatInput')
     
@@ -168,8 +169,9 @@ def app():
         st.session_state.ia_messages.append({"role": "user", "content": userInput,"citations":None})
         update_chat_messages(ctr)
         question = generate_prompt(userInput)
-        with st.spinner('Generating response...'):
-            bot_response = get_bot_response(question)
+        with ctr:
+            with st.spinner('Generating response...'):
+                bot_response = get_bot_response(question)
         update_chat_messages(ctr)
         store_user_info(st.session_state.ia_messages)
 
