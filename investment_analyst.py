@@ -93,13 +93,18 @@ class ComprehendDetect:
     # snippet-end:[python.example_code.comprehend.DetectSentiment]
 
 def get_company_symbols(userInput):
+
     comp_detect = ComprehendDetect(boto3.client("comprehend"))
     entities = comp_detect.detect_entities(userInput, "en")
-    print(entities)
+    # entities = '[{"Score":0.9897878170013428,"Type":"ORGANIZATION","Text":"Microsoft","BeginOffset":8,"EndOffset":17}]'
+    entities_json = json.loads(entities)
+    print(entities_json)
     symbols = []
-    for entity in entities['Entities']:
+    for entity in entities_json:
+        print(entity)
+        # entity_json = json.loads(entity)
         if entity['Type'] == 'ORGANIZATION':
-            symbol = get_ticker(entity)
+            symbol = get_ticker(entity['Text'])
             if symbol:
                 symbols.append(symbol)
     return symbols
