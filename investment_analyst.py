@@ -5,6 +5,11 @@ import json
 import boto3
 import requests
 from langchain.prompts import PromptTemplate
+from streamlit_extras.stylable_container import stylable_container
+import logging
+from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 questions = ["What is Microsoft's expected revenue and earnings growth?", 
                  "Is it better to inevst in Growth stocks or value stocks right now?", 
@@ -28,6 +33,88 @@ If you don't know the answer, just say that you don't know, don't try to make up
 The response should be specific and use statistics or numbers when possible.
 """
 #Also give reference to your souces.
+
+
+class ComprehendDetect:
+    """Encapsulates Comprehend detection functions."""
+
+    def __init__(self, comprehend_client):
+        """
+        :param comprehend_client: A Boto3 Comprehend client.
+        """
+        self.comprehend_client = comprehend_client
+
+    # snippet-end:[python.example_code.comprehend.ComprehendDetect]
+
+    # snippet-start:[python.example_code.comprehend.DetectEntities]
+    def detect_entities(self, text, language_code):
+        """
+        Detects entities in a document. Entities can be things like people and places
+        or other common terms.
+
+        :param text: The document to inspect.
+        :param language_code: The language of the document.
+        :return: The list of entities along with their confidence scores.
+        """
+        try:
+            response = self.comprehend_client.detect_entities(
+                Text=text, LanguageCode=language_code
+            )
+            entities = response["Entities"]
+            logger.info("Detected %s entities.", len(entities))
+        except ClientError:
+            logger.exception("Couldn't detect entities.")
+            raise
+        else:
+            return entities
+
+    # snippet-end:[python.example_code.comprehend.DetectEntities]
+
+    # snippet-start:[python.example_code.comprehend.DetectSentiment]
+    def detect_sentiment(self, text, language_code):
+        """
+        Detects the overall sentiment expressed in a document. Sentiment can
+        be positive, negative, neutral, or a mixture.
+
+        :param text: The document to inspect.
+        :param language_code: The language of the document.
+        :return: The sentiments along with their confidence scores.
+        """
+        try:
+            response = self.comprehend_client.detect_sentiment(
+                Text=text, LanguageCode=language_code
+            )
+            logger.info("Detected primary sentiment %s.", response["Sentiment"])
+        except ClientError:
+            logger.exception("Couldn't detect sentiment.")
+            raise
+        else:
+            return response
+
+    # snippet-end:[python.example_code.comprehend.DetectSentiment]
+
+def get_company_symbols(userInput):
+    comp_detect = ComprehendDetect(boto3.client("comprehend"))
+    entities = comp_detect.detect_entities(userInput, "en")
+    print(entities)
+    symbols = []
+    for entity in entities['Entities']:
+        if entity['Type'] == 'ORGANIZATION':
+            symbol = get_ticker(entity)
+            if symbol:
+                symbols.append(symbol)
+    return symbols
+
+def get_ticker(company_name):
+    yfinance = "https://query2.finance.yahoo.com/v1/finance/search"
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    params = {"q": company_name, "quotes_count": 1, "country": "United States"}
+
+    res = requests.get(url=yfinance, params=params, headers={'User-Agent': user_agent})
+    data = res.json()
+
+    company_code = data['quotes'][0]['symbol']
+    return company_code
 
 def generate_prompt(question):
     LLM_PROMPT = PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"]) 
@@ -136,9 +223,30 @@ def app():
     </style>
     '''
     st.markdown(hide_img_fs, unsafe_allow_html=True)
+    row = st.columns([1,3,2])
 
-    ctr = st.container(height=400)
+    with row[0]:
+        # with st.expander("Most frquently asked questions:"):
+        with  stylable_container(
+            "codeblock",
+            """
+            code {
+                white-space: pre-wrap !important;
+            }
+            """,
+        ):
+        # st.container(height=500):
+            st.write("Most frquently asked questions:")
+            for question in questions:
+                st.code(question,language=None)
     
+    with row[1]:
+        ctr = st.container(height=500)
+    
+    with row[2]:
+        market_info = st.container(height=500)
+        market_info.write("Market Information")
+
     if "ia_messages" not in st.session_state.keys():
         st.session_state.ia_messages = [{"role": "assistant", "content": "Ask your personal Investment Analyst a question to get started!","citations":None}]
     
@@ -161,16 +269,19 @@ def app():
                 else:
                     st.empty()
 
-    with st.expander("Most frquently asked questions:"):
-        for question in questions:
-            st.code(question,language=None)
-
+    
     userInput = st.chat_input("Enter your question",key='chatInput')
     
     if userInput:
         st.session_state.ia_messages.append({"role": "user", "content": userInput,"citations":None})
         update_chat_messages(ctr)
+        tickers = get_company_symbols(userInput)
+        
+        if tickers:
+            st.session_state.tickers = tickers
+            market_info.write(st.session_state.tickers)
         question = generate_prompt(userInput)
+
         with ctr:
             with st.spinner('Generating response...'):
                 bot_response = get_bot_response(question)
@@ -178,3 +289,4 @@ def app():
         store_user_info(st.session_state.ia_messages)
 
 app()
+
