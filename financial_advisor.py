@@ -41,12 +41,9 @@ if "disabled" not in st.session_state:
 
 # using retrieve and generate
 def generate_prompt_with_history(question, history,userDict):
-    LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question,userData=userDict)
-    # PromptTemplate(template=PROMPT_TEMPLATE2, input_variables=["question"],optional_variables=["userData"]) #"history",
     userDict["history"]=''
     json_string = json.dumps(userDict)
-    qa_prompt = LLM_PROMPT.format(question=question,userData=json_string) #history=history,
-    #print(qa_prompt)
+    qa_prompt = PROMPT_TEMPLATE2.format(question=question,userData=json_string)
     return qa_prompt
 
 def get_session_id():
