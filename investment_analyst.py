@@ -179,11 +179,10 @@ def get_bot_response(userInput):
         response = json.loads(lambda_response['Payload'].read().decode('utf-8'))
         # print(response)
         api_json = response['body']
-
-        bot_response = json.loads(api_json["output"].replace('$','\\$'), strict=False)
+        bot_response = json.loads(api_json["output"], strict=False)
         print(bot_response)
         bot_response = bot_response["result"]
-        final_resp = re.sub('%\[\d\]%','',bot_response)
+        final_resp = re.sub('%\[\d\]%','',bot_response).replace('$','\\$')
         print(final_resp)
         # bot_response = api_json["output"].replace('$','\\$')
         # bot_response = json.loads(api_json["output"].replace('$','\\$'))
