@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 questions = ["What is Microsoft's expected revenue and earnings growth?", 
-                 "Is it better to inevst in Growth stocks or value stocks right now?", 
-                 "Summarize Apple's latest earnings report."]
+            "Is it better to invest in Growth stocks or value stocks right now?", 
+            "Summarize Apple's latest earnings report."]
 
 PROMPT_TEMPLATE2 = """
 System: You are an expert Investment Analyst, and your mastery encompasses analyzing both stock fundamentals and intricate technical indicators.
@@ -32,6 +32,8 @@ also try to analyse if we should invest in short term or long term.
 <ticker>{ticker}</ticker>
 The response should be specific and use statistics or numbers when possible.
 """
+#Also give reference to your souces.
+
 
 class ComprehendDetect:
     """Encapsulates Comprehend detection functions."""
@@ -153,10 +155,10 @@ def get_market_data(company_symbols):
         
     return summary
 
-def generate_prompt(question):
-    LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question)
-    qa_prompt = LLM_PROMPT.format(question=question)
-    return qa_prompt
+def generate_prompt(question,ticker):
+    LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question,ticker=ticker)
+    # qa_prompt = LLM_PROMPT.format(question=question)
+    return LLM_PROMPT
 
 # Function to get the bot's response
 def get_bot_response(userInput):
@@ -323,14 +325,13 @@ def app():
                 tickers = get_company_symbols(userInput)
             with st.spinner('Loading market information...'):
                 summary = get_market_data(tickers)
+            if tickers:
+                st.session_state.tickers = tickers
             for ticker in tickers:
                 market_info.write("Summary for {}:".format(ticker))
                 market_info.write(summary[tickers.index(ticker)])
         
-        if tickers:
-            st.session_state.tickers = tickers
-            market_info.write(st.session_state.tickers)
-        question = generate_prompt(userInput)
+        question = generate_prompt(userInput,','.join(tickers))
 
         with ctr:
             with st.spinner('Generating response...'):
