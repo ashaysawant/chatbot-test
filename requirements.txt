@@ -3,3 +3,4 @@ boto3
 botocore
 streamlit-extras
 pyarrow==15.0.0
+yfinance
