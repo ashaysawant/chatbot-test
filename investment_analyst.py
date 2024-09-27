@@ -180,7 +180,7 @@ def get_bot_response(userInput):
         # print(response)
         api_json = response['body']
 
-        bot_response = json.loads(api_json["output"].replace('$','\\$'))
+        bot_response = json.loads(api_json["output"].replace('$','\\$'), strict=False)
         print(bot_response)
         bot_response = bot_response["result"]
         final_resp = re.sub('%\[\d\]%','',bot_response)
