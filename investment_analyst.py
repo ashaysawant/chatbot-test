@@ -96,13 +96,9 @@ def get_company_symbols(userInput):
 
     comp_detect = ComprehendDetect(boto3.client("comprehend"))
     entities = comp_detect.detect_entities(userInput, "en")
-    # entities = '[{"Score":0.9897878170013428,"Type":"ORGANIZATION","Text":"Microsoft","BeginOffset":8,"EndOffset":17}]'
-    entities_json = json.loads(entities)
-    print(entities_json)
+    entities_list = list(entities)
     symbols = []
-    for entity in entities_json:
-        print(entity)
-        # entity_json = json.loads(entity)
+    for entity in entities_list:
         if entity['Type'] == 'ORGANIZATION':
             symbol = get_ticker(entity['Text'])
             if symbol:
