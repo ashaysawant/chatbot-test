@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 import re
 import yfinance as yf
 from datetime import datetime, timedelta
+import pandas_ta as ta
 # import pandas as pd
 # import numpy as np
 
