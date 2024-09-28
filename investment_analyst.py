@@ -113,8 +113,9 @@ def get_ticker(company_name):
 
     res = requests.get(url=yfinance, params=params, headers={'User-Agent': user_agent})
     data = res.json()
-
-    company_code = data['quotes'][0]['symbol']
+    company_code = None
+    if data:
+        company_code = data['quotes'][0]['symbol']
     return company_code
 
 def get_market_data(company_symbols):
@@ -322,10 +323,10 @@ def app():
         with market_info:
             with st.spinner('Analyzing question and information :'):
                 tickers = get_company_symbols(userInput)
-            with st.spinner('Loading market information...'):
-                summary = get_market_data(tickers)
             if tickers:
-                st.session_state.tickers = tickers
+                with st.spinner('Loading market information...'):
+                    summary = get_market_data(tickers)
+                    st.session_state.tickers = tickers
             for ticker in tickers:
                 market_info.write("Summary for {}:".format(ticker))
                 market_info.write(summary[tickers.index(ticker)])
@@ -339,4 +340,3 @@ def app():
         store_user_info(st.session_state.ia_messages)
 
 app()
-
