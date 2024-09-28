@@ -105,8 +105,10 @@ def get_bot_response(userInput):
         
         bot_response = json.loads(api_json["output"], strict=False)
         # print(bot_response)
-        bot_response = bot_response["result"]
-        final_resp = re.sub(r'%\[\d\]%','',bot_response).replace('$','\\$')
+        # bot_response = bot_response["result"]
+        bot_response = api_json["output"].replace('$','\\$')
+        final_resp = re.sub(r'%\[\d\]%','',bot_response)
+        # final_resp = re.sub(r'%\[\d\]%','',bot_response).replace('$','\\$')
         print(final_resp)
         #else:
         #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
