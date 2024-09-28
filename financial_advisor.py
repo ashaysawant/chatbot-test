@@ -3,15 +3,6 @@ import requests
 import json
 import boto3
 import re
-# import os
-# import uuid
-# from itertools import islice
-# import time
-
-#Users previous chat history is provided in <history> tags.
-# <history>
-# {history}
-# </history>
 
 PROMPT_TEMPLATE2 = """
 System: You are a financial advisor AI system, and provides answers to questions by using fact based and statistical information when possible. 
@@ -112,13 +103,10 @@ def get_bot_response(userInput):
         #print(api_json)
         # bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
         
-
-
-        
         bot_response = json.loads(api_json["output"], strict=False)
         # print(bot_response)
         bot_response = bot_response["result"]
-        final_resp = re.sub('%\[\d\]%','',bot_response).replace('$','\\$')
+        final_resp = re.sub(r'%\[\d\]%','',bot_response).replace('$','\\$')
         print(final_resp)
         #else:
         #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
@@ -141,76 +129,98 @@ def disable():
 
 def get_user_inputs(ctr):
     # Create a form for user input
+    print("hello")
+    if "user_dict" in st.session_state.keys():
+        print("user_dict")
+        print(st.session_state.user_dict)
+        m_name = st.session_state.user_dict["name"]
+        m_age = st.session_state.user_dict["age"]
+        m_income = st.session_state.user_dict["income"]
+        m_total_networth = st.session_state.user_dict["total_networth"]
+        m_ih_idx = 0
+        if(st.session_state.user_dict["investment_horizon"]=="Short Term(Less than 5 years)"):
+            m_ih_idx = 0
+        elif (st.session_state.user_dict["investment_horizon"]=="Medium Term(5 to 10 years)"):
+            m_ih_idx = 1
+        elif (st.session_state.user_dict["investment_horizon"]=="Long Term(10+ years)"):
+            m_ih_idx = 2
+
+        m_fg_idx = 0
+        if(st.session_state.user_dict["financial_goal"]=="Retirement"):
+            m_fg_idx = 0
+        elif (st.session_state.user_dict["financial_goal"]=="Education"):
+            m_fg_idx = 1
+        elif (st.session_state.user_dict["financial_goal"]=="Income Generation"):
+            m_fg_idx = 2
+        elif (st.session_state.user_dict["financial_goal"]=="Travel"):
+            m_fg_idx = 3
+        elif (st.session_state.user_dict["financial_goal"]=="Home Purchase"):
+            m_fg_idx = 4
+        
+        m_rt_idx = 0
+        if(st.session_state.user_dict["risk_tolerance"]=="Low"):
+            m_rt_idx = 0
+        elif (st.session_state.user_dict["risk_tolerance"]=="Moderate"):
+            m_rt_idx = 1
+        elif (st.session_state.user_dict["risk_tolerance"]=="High"):
+            m_rt_idx = 2
+        
+        m_preferred_asset_class = st.session_state.user_dict["preferred_asset_class"]
+        m_current_portfolio = st.session_state.user_dict["current_portfolio"]
+    else :
+        m_name = ""
+        m_age = 0
+        m_income = 0
+        m_total_networth = 0
+        m_ih_idx = 0
+        m_fg_idx = 0
+        m_rt_idx = 0
+        m_preferred_asset_class = []
+        m_current_portfolio = {"Stocks":0, "Bonds":0, "Real Estate":0}
+
     with ctr: 
         with st.form("user_input_form"):
 
             # Get user input for name
             name = st.text_input("Enter your Name:", key="name",disabled=st.session_state.disabled
-                                 ,value=st.session_state.user_dict["name"])
+                                 ,value=m_name)
 
             # Get user input for age
             age = st.number_input("Enter your Age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled
-                                  ,value=st.session_state.user_dict["age"])
+                                  ,value=m_age)
 
             # Get user input for income
             income = st.number_input("Enter your Annual Income:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,
-                                     value=st.session_state.user_dict["income"])
+                                     value=m_income)
 
             #Get user input for total networth
             total_networth = st.number_input("Enter your Total Networth:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,
-                                             value=st.session_state.user_dict["total_networth"])
-            idx = 0
-            if(st.session_state.user_dict["investment_horizon"]=="Short Term(Less than 5 years)"):
-                idx = 0
-            elif (st.session_state.user_dict["investment_horizon"]=="Medium Term(5 to 10 years)"):
-                idx = 1
-            elif (st.session_state.user_dict["investment_horizon"]=="Long Term(10+ years)"):
-                idx = 2
+                                             value=m_total_networth)
+            
             #Get user input for investment horizon
             investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"]
-                                          ,horizontal=True,disabled=st.session_state.disabled,index=idx)
+                                          ,horizontal=True,disabled=st.session_state.disabled,index=m_ih_idx)
 
-            idx = 0
-            if(st.session_state.user_dict["financial_goal"]=="Retirement"):
-                idx = 0
-            elif (st.session_state.user_dict["financial_goal"]=="Education"):
-                idx = 1
-            elif (st.session_state.user_dict["financial_goal"]=="Income Generation"):
-                idx = 2
-            elif (st.session_state.user_dict["financial_goal"]=="Travel"):
-                idx = 3
-            elif (st.session_state.user_dict["financial_goal"]=="Home Purchase"):
-                idx = 4
             #Get user input for financial goal
             financial_goal = st.radio("Select your Financial Goal:", options=["Retirement", "Education", "Income Generation","Travel","Home Purchase"]
-                                      ,horizontal=True,disabled=st.session_state.disabled,index=idx)
-
-            idx = 0
-            if(st.session_state.user_dict["risk_tolerance"]=="Low"):
-                idx = 0
-            elif (st.session_state.user_dict["risk_tolerance"]=="Moderate"):
-                idx = 1
-            elif (st.session_state.user_dict["risk_tolerance"]=="High"):
-                idx = 2
+                                      ,horizontal=True,disabled=st.session_state.disabled,index=m_fg_idx)
+            
             #Get user input for risk tolerance
             risk_tolerance = st.radio("Select your Risk Tolerance:", options=["Low", "Moderate", "High"]
-                                      ,horizontal=True,disabled= st.session_state.disabled,index=idx)
+                                      ,horizontal=True,disabled= st.session_state.disabled,index=m_rt_idx)
 
             #Get user input for preferred asset class
             preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)"]
-                                                   ,disabled=st.session_state.disabled,default=st.session_state.user_dict["preferred_asset_class"])
+                                                   ,disabled=st.session_state.disabled,default=m_preferred_asset_class)
             
-            #Get user input for existing investments
-            #existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
-
             st.write("Enter the value of your Current Portfolio:",)
             left,middle, right = st.columns(3)
             with left:
-                stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Stocks"])
+                stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=m_current_portfolio["Stocks"])
             with middle:
-                bonds_investments = st.number_input("Bonds:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Bonds"])
+                bonds_investments = st.number_input("Bonds:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=m_current_portfolio["Bonds"])
             with right:
-                real_estate_investments = st.number_input("Real Estate:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Real Estate"])
+                real_estate_investments = st.number_input("Real Estate:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=m_current_portfolio["Real Estate"])
             
             current_portfolio = {"Stocks":stocks_investments, "Bonds":bonds_investments, "Real Estate":real_estate_investments}
             # Submit button
@@ -247,7 +257,6 @@ def generate_prompt(userDict):
 def update_chat_messages(container):
     #Display chat messages
     message = st.session_state.messages[-1]
-    #print(message)
     with container:
         with st.chat_message(message["role"]):
             st.markdown(message["content"],unsafe_allow_html=True)
@@ -269,11 +278,7 @@ def update_chat_messages(container):
 # Streamlit app
 def app():
     get_session_id()
-    #st.logo("logo.png")
     st.image("Banner2.png")
-    #st.title("AI Wizards Financial Advisor")
-    #header_container = st.columns(3)
-    #header_container[0].image("logo.png",width=150)
     hide_img_fs = '''
     <style>
     button[title="View fullscreen"]{
@@ -281,9 +286,7 @@ def app():
     </style>
     '''
     st.markdown(hide_img_fs, unsafe_allow_html=True)
-    #header_container[1].markdown("<h2 style='text-align: center;'>AI Wizards Financial Advisor</h2>", unsafe_allow_html=True)
-    #header_container[1].markdown("<p style='text-align: center;'>Welcome to the your Financial Advisor!</p>", unsafe_allow_html=True)
-
+    
     row1= st.columns(2)    
     with row1[0]:
         left_container = st.container(height=920)
@@ -294,7 +297,6 @@ def app():
     if "messages" not in st.session_state.keys():
         st.session_state.messages = [{"role": "assistant", "content": "Enter user information","citations":None}]
     # Create a form for user input
-    #left_container.text("User information:")
     userDict = get_user_inputs(left_container)
     
     for message in st.session_state.messages:
@@ -318,6 +320,7 @@ def app():
 
     # Get the bot's response
     if userDict:
+        st.session_state.user_dict = userDict
         userPrompt= generate_prompt(userDict)
         question = generate_prompt_with_history(userPrompt,st.session_state.messages,userDict)
         st.session_state.messages.append({"role": "user", "content": userPrompt,"citations":None})
@@ -355,7 +358,6 @@ def app():
             userDict["session_id"]= st.session_state['session_id']
         store_user_info(userDict)
         
-    st.session_state.user_dict = userDict
 
 #if __name__ == "__main__":
 app()
