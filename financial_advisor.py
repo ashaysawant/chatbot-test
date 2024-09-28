@@ -103,7 +103,7 @@ def get_bot_response(userInput):
         #print(api_json)
         # bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
         
-        bot_response = json.loads(api_json["output"], strict=False)
+        # bot_response = json.loads(api_json["output"], strict=False)
         # print(bot_response)
         # bot_response = bot_response["result"]
         bot_response = api_json["output"].replace('$','\\$')
