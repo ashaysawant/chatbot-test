@@ -7,7 +7,6 @@ import logging
 from botocore.exceptions import ClientError
 import re
 import yfinance as yf
-import pandas_ta as ta
 from datetime import datetime, timedelta
 # import pandas as pd
 # import numpy as np
@@ -158,7 +157,6 @@ def get_market_data(company_symbols):
 
 def generate_prompt(question,ticker):
     LLM_PROMPT = PROMPT_TEMPLATE2.format(question=question,ticker=ticker)
-    # qa_prompt = LLM_PROMPT.format(question=question)
     return LLM_PROMPT
 
 # Function to get the bot's response
@@ -181,14 +179,10 @@ def get_bot_response(userInput):
         # print(response)
         api_json = response['body']
         bot_response = json.loads(api_json["output"], strict=False)
-        print(bot_response)
+        #print(bot_response)
         bot_response = bot_response["result"]
-        final_resp = re.sub('%\[\d\]%','',bot_response).replace('$','\\$')
-        print(final_resp)
-        # bot_response = api_json["output"].replace('$','\\$')
-        # bot_response = json.loads(api_json["output"].replace('$','\\$'))
-        # bot_response = bot_response["result"].replace('%\[\d\]%','')    
-        # print(bot_response)
+        final_resp = re.sub(r'%\[\d\]%','',bot_response).replace('$','\\$')
+        #print(final_resp)
         
     except requests.exceptions.RequestException as e:
         print(f'Error: {e}')
@@ -340,3 +334,4 @@ def app():
         store_user_info(st.session_state.ia_messages)
 
 app()
+
