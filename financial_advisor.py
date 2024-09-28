@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import boto3
+import re
 # import os
 # import uuid
 # from itertools import islice
@@ -109,8 +110,16 @@ def get_bot_response(userInput):
         #     api_response = response.text
         #     api_json = json.loads(api_response)
         #print(api_json)
-        bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
+        # bot_response = api_json["output"].replace('$','\\$') #.replace('\\n', '  <br />  ')
         
+
+
+        
+        bot_response = json.loads(api_json["output"], strict=False)
+        # print(bot_response)
+        bot_response = bot_response["result"]
+        final_resp = re.sub('%\[\d\]%','',bot_response).replace('$','\\$')
+        print(final_resp)
         #else:
         #    st.session_state.messages.append({"role": "assistant", "content": bot_response})
     except requests.exceptions.RequestException as e:
@@ -122,8 +131,10 @@ def get_bot_response(userInput):
     if "citations" in api_json.keys(): 
         citations = api_json["citations"]
         #print(citations)
-        st.session_state.messages.append({"role": "assistant", "content": bot_response, "citations":citations})
-    return bot_response
+        st.session_state.messages.append({"role": "assistant", "content": final_resp, "citations":citations})
+    else : 
+        st.session_state.messages.append({"role": "assistant", "content": final_resp, "citations":None})
+    return final_resp
 
 def disable():
     st.session_state["disabled"] = True
@@ -134,40 +145,72 @@ def get_user_inputs(ctr):
         with st.form("user_input_form"):
 
             # Get user input for name
-            name = st.text_input("Enter your Name:", key="name",disabled=st.session_state.disabled)
+            name = st.text_input("Enter your Name:", key="name",disabled=st.session_state.disabled
+                                 ,value=st.session_state.user_dict["name"])
 
             # Get user input for age
-            age = st.number_input("Enter your Age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled)
+            age = st.number_input("Enter your Age:", min_value=0, step=1, max_value=100,disabled=st.session_state.disabled
+                                  ,value=st.session_state.user_dict["age"])
 
             # Get user input for income
-            income = st.number_input("Enter your Annual Income:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,value=0)
+            income = st.number_input("Enter your Annual Income:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,
+                                     value=st.session_state.user_dict["income"])
 
             #Get user input for total networth
-            total_networth = st.number_input("Enter your Total Networth:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,value=0)
-
+            total_networth = st.number_input("Enter your Total Networth:", min_value=0, step=100, max_value=1000000000,disabled=st.session_state.disabled,
+                                             value=st.session_state.user_dict["total_networth"])
+            idx = 0
+            if(st.session_state.user_dict["investment_horizon"]=="Short Term(Less than 5 years)"):
+                idx = 0
+            elif (st.session_state.user_dict["investment_horizon"]=="Medium Term(5 to 10 years)"):
+                idx = 1
+            elif (st.session_state.user_dict["investment_horizon"]=="Long Term(10+ years)"):
+                idx = 2
             #Get user input for investment horizon
-            investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"],horizontal=True,disabled=st.session_state.disabled)
+            investment_horizon = st.radio("Select your Investment Horizon:", options=["Short Term(Less than 5 years)", "Medium Term(5 to 10 years)", "Long Term(10+ years)"]
+                                          ,horizontal=True,disabled=st.session_state.disabled,index=idx)
 
+            idx = 0
+            if(st.session_state.user_dict["financial_goal"]=="Retirement"):
+                idx = 0
+            elif (st.session_state.user_dict["financial_goal"]=="Education"):
+                idx = 1
+            elif (st.session_state.user_dict["financial_goal"]=="Income Generation"):
+                idx = 2
+            elif (st.session_state.user_dict["financial_goal"]=="Travel"):
+                idx = 3
+            elif (st.session_state.user_dict["financial_goal"]=="Home Purchase"):
+                idx = 4
             #Get user input for financial goal
-            financial_goal = st.radio("Select your Financial Goal:", options=["Retirement", "Education", "Income Generation","Travel","Home Purchase"],horizontal=True,disabled=st.session_state.disabled)
+            financial_goal = st.radio("Select your Financial Goal:", options=["Retirement", "Education", "Income Generation","Travel","Home Purchase"]
+                                      ,horizontal=True,disabled=st.session_state.disabled,index=idx)
 
+            idx = 0
+            if(st.session_state.user_dict["risk_tolerance"]=="Low"):
+                idx = 0
+            elif (st.session_state.user_dict["risk_tolerance"]=="Moderate"):
+                idx = 1
+            elif (st.session_state.user_dict["risk_tolerance"]=="High"):
+                idx = 2
             #Get user input for risk tolerance
-            risk_tolerance = st.radio("Select your Risk Tolerance:", options=["Low", "Moderate", "High"],horizontal=True,disabled= st.session_state.disabled)
+            risk_tolerance = st.radio("Select your Risk Tolerance:", options=["Low", "Moderate", "High"]
+                                      ,horizontal=True,disabled= st.session_state.disabled,index=idx)
 
             #Get user input for preferred asset class
-            preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)"],disabled=st.session_state.disabled)
-
+            preferred_asset_class = st.multiselect("Select your Preferred Asset Class:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)"]
+                                                   ,disabled=st.session_state.disabled,default=st.session_state.user_dict["preferred_asset_class"])
+            
             #Get user input for existing investments
             #existing_investments = st.multiselect("Select your Existing Investments:", options=["Stocks", "Bonds", "Mutual Funds", "ETFs", "Real Estate", "CDs(Certificate of Deposits)", "None"],disabled=st.session_state.disabled)
 
             st.write("Enter the value of your Current Portfolio:",)
             left,middle, right = st.columns(3)
             with left:
-                stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+                stocks_investments = st.number_input("Stocks:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Stocks"])
             with middle:
-                bonds_investments = st.number_input("Bonds:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+                bonds_investments = st.number_input("Bonds:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Bonds"])
             with right:
-                real_estate_investments = st.number_input("Real Estate:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=0)
+                real_estate_investments = st.number_input("Real Estate:", min_value=0, step=1, max_value=1000000000, disabled=st.session_state.disabled, value=st.session_state.user_dict["current_portfolio"]["Real Estate"])
             
             current_portfolio = {"Stocks":stocks_investments, "Bonds":bonds_investments, "Real Estate":real_estate_investments}
             # Submit button
