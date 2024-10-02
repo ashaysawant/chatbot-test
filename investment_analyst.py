@@ -114,7 +114,7 @@ def get_ticker(company_name):
     res = requests.get(url=yfinance, params=params, headers={'User-Agent': user_agent})
     data = res.json()
     company_code = None
-    if data:
+    if data['count']>0 and len(data['quotes'])>0:
         company_code = data['quotes'][0]['symbol']
     return company_code
 
